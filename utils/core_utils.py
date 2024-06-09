@@ -7,9 +7,10 @@ import torch
 
 from datasets.dataset_generic import save_splits
 from models.model_genomic import SNN
-from models.model_set_mil import MIL_Sum_FC_surv, MIL_Attention_FC_surv, MIL_Cluster_FC_surv
+from models.model_set_mil import MIL_Sum_FC_surv, MIL_Attention_FC_surv
 from models.model_coattn import MCAT_Surv
 from models.model_motcat import MOTCAT_Surv
+from models.model_porpoise import PorpoiseAMIL, PorpoiseMMF
 from utils.utils import *
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
@@ -108,7 +109,6 @@ def train(datasets: tuple, cur: int, args: Namespace):
     print('Done!')
     
     print('\nInit Model...', end=' ')
-    model_dict = {"dropout": args.drop_out, 'n_classes': args.n_classes}
     args.fusion = None if args.fusion == 'None' else args.fusion
     args.omic_sizes = train_split.omic_sizes
 
@@ -116,20 +116,26 @@ def train(datasets: tuple, cur: int, args: Namespace):
         model_dict = {'omic_input_dim': args.omic_input_dim, 'model_size_omic': args.model_size_omic, 'n_classes': args.n_classes}
         model = SNN(**model_dict)
     elif args.model_type == 'deepset':
-        model_dict = {'omic_input_dim': args.omic_input_dim, 'fusion': args.fusion, 'n_classes': args.n_classes}
+        model_dict = {"path_input_dim": args.path_input_dim, 'omic_input_dim': args.omic_input_dim, 'fusion': args.fusion, 'n_classes': args.n_classes}
         model = MIL_Sum_FC_surv(**model_dict)
     elif args.model_type =='amil':
-        model_dict = {'omic_input_dim': args.omic_input_dim, 'fusion': args.fusion, 'n_classes': args.n_classes}
-        model = MIL_Attention_FC_surv(**model_dict)
-    elif args.model_type == 'mi_fcn':
-        model_dict = {'omic_input_dim': args.omic_input_dim, 'fusion': args.fusion, 'num_clusters': 10, 'n_classes': args.n_classes}
-        model = MIL_Cluster_FC_surv(**model_dict)
+        model_dict = {'path_input_dim': args.path_input_dim, 'omic_input_dim': args.omic_input_dim, 'fusion': args.fusion, 'n_classes': args.n_classes}
+        model = MIL_Attention_FC_surv
     elif args.model_type == 'mcat':
         model_dict = {"path_input_dim": args.path_input_dim, 'fusion': args.fusion, 'omic_sizes': args.omic_sizes, 'n_classes': args.n_classes}
         model = MCAT_Surv(**model_dict)
     elif args.model_type == 'motcat':
-        model_dict = {'ot_reg': args.ot_reg, 'ot_tau': args.ot_tau, 'ot_impl': args.ot_impl,'fusion': args.fusion, 'omic_sizes': args.omic_sizes, 'n_classes': args.n_classes}
+        model_dict = {'path_input_dim': args.path_input_dim, 'ot_reg': args.ot_reg, 'ot_tau': args.ot_tau, 'ot_impl': args.ot_impl,'fusion': args.fusion, 'omic_sizes': args.omic_sizes, 'n_classes': args.n_classes}
         model = MOTCAT_Surv(**model_dict)
+    elif args.model_type == 'porpoise_mmf':
+        model_dict = {'path_input_dim': args.path_input_dim, 'omic_input_dim': args.omic_input_dim, 'fusion': args.fusion, 'n_classes': args.n_classes, 
+        'gate_path': args.gate_path, 'gate_omic': args.gate_omic, 'scale_dim1': args.scale_dim1, 'scale_dim2': args.scale_dim2, 
+        'skip': args.skip, 'dropinput': args.dropinput, 'path_input_dim': args.path_input_dim, 'use_mlp': args.use_mlp,
+        }
+        model = PorpoiseMMF(**model_dict)
+    elif args.model_type == 'porpoise_amil':
+        model_dict = {'path_input_dim': args.path_input_dim, 'n_classes': args.n_classes}
+        model = PorpoiseAMIL(**model_dict)
     else:
         raise NotImplementedError
     
@@ -138,7 +144,8 @@ def train(datasets: tuple, cur: int, args: Namespace):
     else:
         model = model.to(torch.device('cuda'))
     print('Done!')
-    print_network(model)
+    if cur == 0:
+        print_network(model)
 
     print('\nInit optimizer ...', end=' ')
     optimizer = get_optim(model, args)
@@ -223,9 +230,8 @@ def loop_survival(
             else:
                 data_WSI, data_omic, label, event_time, c = list(map(lambda x:x.to(device), data))
                 with torch.set_grad_enabled(training):
-                    hazards, S, Y_hat, _, _ = model(x_path=data_WSI, x_omic=data_omic) # return hazards, S, Y_hat, A_raw, results_dict
-            
-            
+                    hazards, S = model(x_path=data_WSI, x_omic=data_omic)
+                
             loss = loss_fn(hazards=hazards, S=S, Y=label, c=c)
             risk = -torch.sum(S, dim=1).detach().cpu().numpy()
         

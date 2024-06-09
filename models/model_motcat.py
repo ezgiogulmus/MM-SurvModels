@@ -83,13 +83,13 @@ class OT_Attn_assem(nn.Module):
 ### MOTCAT Implementation ###
 #############################
 class MOTCAT_Surv(nn.Module):
-    def __init__(self, fusion='concat', omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4,
+    def __init__(self, path_input_dim, fusion='concat', omic_sizes=[100, 200, 300, 400, 500, 600], n_classes=4,
                  model_size_wsi: str='small', model_size_omic: str='small', dropout=0.25,ot_reg=0.1, ot_tau=0.5, ot_impl="pot-uot-l2"):
         super(MOTCAT_Surv, self).__init__()
         self.fusion = fusion
         self.omic_sizes = omic_sizes
         self.n_classes = n_classes
-        self.size_dict_WSI = {"small": [1024, 256, 256], "big": [1024, 512, 384]}
+        self.size_dict_WSI = {"small": [path_input_dim, 256, 256], "big": [path_input_dim, 512, 384]}
         self.size_dict_omic = {'small': [256, 256], 'big': [1024, 1024, 1024, 256]}
         
         ### FC Layer over WSI bag

@@ -138,7 +138,7 @@ def setup_argparse():
 	parser.add_argument('--selected_features',     	 action='store_false', default=True)
 	parser.add_argument('--n_classes', type=int, default=4)
 
-	parser.add_argument('--model_type',      type=str, choices=['snn', 'deepset', 'amil', 'mi_fcn', 'mcat', "motcat"], default='mcat', help='Type of model (Default: mcat)')
+	parser.add_argument('--model_type',      type=str, choices=['snn', 'deepset', 'amil', 'mi_fcn', 'mcat', "motcat", "porpmmf", "porpamil"], default='mcat', help='Type of model (Default: mcat)')
 	parser.add_argument('--mode',            type=str, choices=['omic', 'path', 'pathomic', 'cluster', 'coattn'], default='coattn', help='Specifies which modalities to use / collate function in dataloader.')
 	parser.add_argument('--fusion',          type=str, choices=['None', 'concat', 'bilinear'], default='concat', help='Type of fusion. (Default: concat).')
 	parser.add_argument('--apply_sig',		 action='store_true', default=False, help='Use genomic features as signature embeddings.')

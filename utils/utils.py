@@ -415,6 +415,14 @@ def check_directories(args):
 	assert os.path.isdir(args.split_dir)
 
 	param_code = args.model_type.upper()
+	if args.model_type in ["mcat", "motcat"]:
+		args.mode = "coattn"	
+	elif args.model_type in ["porpmmf", "deepset", "amil"]:
+		args.mode = "pathomic" 
+	elif args.model_type == "snn":
+		args.mode = "omic"
+	elif args.model_type == "porpamil":
+		args.mode = "path"
 	
 	if feat_extractor:
 		param_code += "_" + feat_extractor
