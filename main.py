@@ -12,7 +12,7 @@ import wandb
 
 ### Internal Imports
 from datasets.dataset_survival import MIL_Survival_Dataset
-from utils.file_utils import save_pkl, load_pkl
+from utils.file_utils import save_pkl
 from utils.core_utils import train
 from utils.utils import check_directories, get_data
 
@@ -119,8 +119,8 @@ def setup_argparse():
 	parser.add_argument('--feats_dir',   type=str, default=None)
 
 	parser.add_argument('--dataset_dir', type=str, default="./datasets_csv")
-	parser.add_argument('--results_dir',     type=str, default='./results', help='Results directory (Default: ./results)')
-	parser.add_argument('--split_dir',       type=str, default="./splits", help='Split directory (Default: ./splits)')
+	parser.add_argument('--results_dir', type=str, default='./results', help='Results directory (Default: ./results)')
+	parser.add_argument('--split_dir', type=str, default="./splits", help='Split directory (Default: ./splits)')
 
 	parser.add_argument('--run_config_file',      type=str, default=None)
 	
@@ -138,7 +138,7 @@ def setup_argparse():
 	parser.add_argument('--selected_features',     	 action='store_false', default=True)
 	parser.add_argument('--n_classes', type=int, default=4)
 
-	parser.add_argument('--model_type',      type=str, choices=['snn', 'deepset', 'amil', 'mi_fcn', 'mcat'], default='mcat', help='Type of model (Default: mcat)')
+	parser.add_argument('--model_type',      type=str, choices=['snn', 'deepset', 'amil', 'mi_fcn', 'mcat', "motcat"], default='mcat', help='Type of model (Default: mcat)')
 	parser.add_argument('--mode',            type=str, choices=['omic', 'path', 'pathomic', 'cluster', 'coattn'], default='coattn', help='Specifies which modalities to use / collate function in dataloader.')
 	parser.add_argument('--fusion',          type=str, choices=['None', 'concat', 'bilinear'], default='concat', help='Type of fusion. (Default: concat).')
 	parser.add_argument('--apply_sig',		 action='store_true', default=False, help='Use genomic features as signature embeddings.')
@@ -146,6 +146,12 @@ def setup_argparse():
 	parser.add_argument('--drop_out',        action='store_true', default=True, help='Enable dropout (p=0.25)')
 	parser.add_argument('--model_size_wsi',  type=str, default='small', help='Network size of AMIL model')
 	parser.add_argument('--model_size_omic', type=str, default='small', help='Network size of SNN model')
+
+	# MOTCAT Parameters
+	parser.add_argument('--bs_micro', type=int, default=256, help='The Size of Micro-batch (Default: 256)')  # new
+	parser.add_argument('--ot_impl', type=str, default='pot-uot-l2', help='impl of ot (default: pot-uot-l2)')  # new
+	parser.add_argument('--ot_reg', type=float, default=0.1, help='epsilon of OT (default: 0.1)')
+	parser.add_argument('--ot_tau', type=float, default=0.5, help='tau of UOT (default: 0.5)')
 
 	### Optimizer Parameters + Survival Loss Function
 	parser.add_argument('--opt',             type=str, choices = ['adam', 'sgd'], default='adam')
@@ -162,7 +168,6 @@ def setup_argparse():
 	parser.add_argument('--lambda_reg',      type=float, default=1e-4, help='L1-Regularization Strength (Default 1e-4)')
 	parser.add_argument('--weighted_sample', action='store_true', default=True, help='Enable weighted sampling')
 	parser.add_argument('--early_stopping',  action='store_true', default=False, help='Enable early stopping')
-
 
 	args = parser.parse_args()
 	return args

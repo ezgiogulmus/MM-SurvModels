@@ -1,6 +1,7 @@
 from argparse import Namespace
 import os
 import numpy as np
+import random
 from sksurv.metrics import concordance_index_censored
 import torch
 
@@ -8,7 +9,10 @@ from datasets.dataset_generic import save_splits
 from models.model_genomic import SNN
 from models.model_set_mil import MIL_Sum_FC_surv, MIL_Attention_FC_surv, MIL_Cluster_FC_surv
 from models.model_coattn import MCAT_Surv
+from models.model_motcat import MOTCAT_Surv
 from utils.utils import *
+
+device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
 
 
 class EarlyStopping:
@@ -123,6 +127,9 @@ def train(datasets: tuple, cur: int, args: Namespace):
     elif args.model_type == 'mcat':
         model_dict = {"path_input_dim": args.path_input_dim, 'fusion': args.fusion, 'omic_sizes': args.omic_sizes, 'n_classes': args.n_classes}
         model = MCAT_Surv(**model_dict)
+    elif args.model_type == 'motcat':
+        model_dict = {'ot_reg': args.ot_reg, 'ot_tau': args.ot_tau, 'ot_impl': args.ot_impl,'fusion': args.fusion, 'omic_sizes': args.omic_sizes, 'n_classes': args.n_classes}
+        model = MOTCAT_Surv(**model_dict)
     else:
         raise NotImplementedError
     
@@ -151,8 +158,8 @@ def train(datasets: tuple, cur: int, args: Namespace):
     print('Done!\n\n')
 
     for epoch in range(args.max_epochs):
-        loop_survival(cur, epoch, model, train_loader, loss_fn, reg_fn, args.lambda_reg, writer, optimizer, args.gc, coattn=True if args.mode == "coattn" else False)
-        stop = loop_survival(cur, epoch, model, val_loader, loss_fn, reg_fn, args.lambda_reg, writer, coattn=True if args.mode == "coattn" else False, training=False, results_dir=args.results_dir, early_stopping=early_stopping)
+        loop_survival(cur, epoch, model, train_loader, loss_fn, reg_fn, args.lambda_reg, writer, optimizer, args.gc, model_type=args.model_type, bs_micro=args.bs_micro)
+        stop = loop_survival(cur, epoch, model, val_loader, loss_fn, reg_fn, args.lambda_reg, writer, model_type=args.model_type, training=False, results_dir=args.results_dir, early_stopping=early_stopping, bs_micro=args.bs_micro)
         if stop:
             break
     
@@ -160,8 +167,9 @@ def train(datasets: tuple, cur: int, args: Namespace):
     if os.path.isfile(os.path.join(args.results_dir, "s_{}_minloss_checkpoint.pt".format(cur))):
         model.load_state_dict(torch.load(os.path.join(args.results_dir, "s_{}_minloss_checkpoint.pt".format(cur))))
     
-    results_val_dict, val_cindex = loop_survival(cur, epoch, model, val_loader, loss_fn, reg_fn, args.lambda_reg, coattn=True if args.mode == "coattn" else False, training=False, return_summary=True)
-    results_test_dict, test_cindex = loop_survival(cur, epoch, model, test_loader, loss_fn, reg_fn, args.lambda_reg, coattn=True if args.mode == "coattn" else False, training=False, return_summary=True)
+    results_val_dict, val_cindex = loop_survival(cur, epoch, model, val_loader, loss_fn, reg_fn, args.lambda_reg, model_type=args.model_type, training=False, return_summary=True, bs_micro=args.bs_micro)
+    results_test_dict, test_cindex = loop_survival(cur, epoch, model, test_loader, loss_fn, reg_fn, args.lambda_reg, model_type=args.model_type, training=False, return_summary=True, bs_micro=args.bs_micro)
+
     print('Val c-Index: {:.4f} | Test c-Index: {:.4f}'.format(val_cindex, test_cindex))
     log = {'val_cindex': val_cindex, 'test_cindex': test_cindex}
     if writer:
@@ -173,10 +181,9 @@ def train(datasets: tuple, cur: int, args: Namespace):
 def loop_survival(
         cur, epoch, model, loader, 
         loss_fn=None, reg_fn=None, lambda_reg=0., writer=None, optimizer=None, gc=16, 
-        coattn=True, training=True, results_dir=None, 
-        early_stopping=None, return_summary=False
+        model_type="coattn", training=True, results_dir=None, 
+        early_stopping=None, return_summary=False, bs_micro=256
     ): 
-    device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
     model.train() if training else model.eval()
     split_name = "Train" if training else "Validation"
     loss_surv, running_loss = 0., 0.
@@ -190,16 +197,38 @@ def loop_survival(
 
     for batch_idx, data in enumerate(loader):
         
-        if coattn:
+        if model_type == "motcat":
             data_WSI, data_omic1, data_omic2, data_omic3, data_omic4, data_omic5, data_omic6, label, event_time, c = list(map(lambda x:x.to(device), data))
-            with torch.set_grad_enabled(training):
-                hazards, S, Y_hat, A  = model(x_path=data_WSI, x_omic1=data_omic1, x_omic2=data_omic2, x_omic3=data_omic3, x_omic4=data_omic4, x_omic5=data_omic5, x_omic6=data_omic6)
+            loss = 0.
+            all_risk = 0.
+            cnt = 0
+            index_chunk_list = split_chunk_list(data_WSI, bs_micro)
+            for tindex in index_chunk_list:
+                wsi_mb = torch.index_select(data_WSI, dim=0, index=torch.LongTensor(tindex).to(data_WSI.device)).cuda()
+                with torch.set_grad_enabled(training):
+                    hazards, S, _, _  = model(x_path=wsi_mb, x_omic1=data_omic1, x_omic2=data_omic2, x_omic3=data_omic3, x_omic4=data_omic4, x_omic5=data_omic5, x_omic6=data_omic6)
+                
+                loss_micro = loss_fn(hazards=hazards, S=S, Y=label, c=c)
+                
+                loss += loss_micro
+                all_risk += -torch.sum(S, dim=1).detach().cpu().numpy().item()
+                cnt+=1
+            loss = loss / cnt
+            risk = all_risk / cnt
         else:
-            data_WSI, data_omic, label, event_time, c = list(map(lambda x:x.to(device), data))
-            with torch.set_grad_enabled(training):
-                hazards, S, Y_hat, _, _ = model(x_path=data_WSI, x_omic=data_omic) # return hazards, S, Y_hat, A_raw, results_dict
+            if model_type == "mcat":
+                data_WSI, data_omic1, data_omic2, data_omic3, data_omic4, data_omic5, data_omic6, label, event_time, c = list(map(lambda x:x.to(device), data))
+                with torch.set_grad_enabled(training):
+                    hazards, S, Y_hat, A  = model(x_path=data_WSI, x_omic1=data_omic1, x_omic2=data_omic2, x_omic3=data_omic3, x_omic4=data_omic4, x_omic5=data_omic5, x_omic6=data_omic6)
+            else:
+                data_WSI, data_omic, label, event_time, c = list(map(lambda x:x.to(device), data))
+                with torch.set_grad_enabled(training):
+                    hazards, S, Y_hat, _, _ = model(x_path=data_WSI, x_omic=data_omic) # return hazards, S, Y_hat, A_raw, results_dict
+            
+            
+            loss = loss_fn(hazards=hazards, S=S, Y=label, c=c)
+            risk = -torch.sum(S, dim=1).detach().cpu().numpy()
         
-        loss = loss_fn(hazards=hazards, S=S, Y=label, c=c)
         loss_value = loss.item()
 
         if reg_fn is None:
@@ -207,7 +236,6 @@ def loop_survival(
         else:
             loss_reg = reg_fn(model) * lambda_reg
 
-        risk = -torch.sum(S, dim=1).detach().cpu().numpy()
         all_risk_scores[batch_idx] = risk
         all_censorships[batch_idx] = c.item()
         all_event_times[batch_idx] = event_time
@@ -222,7 +250,6 @@ def loop_survival(
                     'survival': event_time.cpu().numpy(), 
                     'censorship': c.cpu().numpy()
             }})
-
 
         loss_surv += loss_value
         running_loss += loss_value + loss_reg
@@ -261,4 +288,13 @@ def loop_survival(
             print("Early stopping")
             return True
     return False
+
+
+def split_chunk_list(data, batch_size):
+    numGroup = data.shape[0] // batch_size + 1
+    feat_index = list(range(data.shape[0]))
+    random.shuffle(feat_index)
+    index_chunk_list = np.array_split(np.array(feat_index), numGroup)
+    index_chunk_list = [sst.tolist() for sst in index_chunk_list]
+    return index_chunk_list
 
