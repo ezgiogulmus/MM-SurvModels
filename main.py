@@ -8,7 +8,6 @@ from timeit import default_timer as timer
 import numpy as np
 import pandas as pd
 import torch
-import wandb
 
 ### Internal Imports
 from datasets.dataset_survival import MIL_Survival_Dataset
@@ -25,19 +24,6 @@ def main(args=None):
 
 	args = check_directories(args)
 		
-	if args.wandb:
-		args.k = 1
-		args.max_epochs = 20
-		args.early_stopping = 10
-		wandb.init(config=vars(args))
-		config = wandb.config
-		for key, value in config.items():
-			print(key, value)
-			setattr(args, key, value)
-		
-		args.run_name = wandb.run.name
-		args.results_dir = os.path.join(args.results_dir, args.data_name, "wandb", args.run_name)
-	
 	os.makedirs(args.results_dir, exist_ok=True)
 	if ('summary_latest.csv' in os.listdir(args.results_dir)) and (not args.overwrite):
 		print("Exp Code <%s> already exists! Exiting script." % args.run_name)
@@ -99,9 +85,6 @@ def main(args=None):
 		for k in log.keys():
 			results[k].append(log[k])
 		
-		if args.wandb:
-			wandb.log(log)
-
 		save_pkl(val_results_pkl_path, val_latest)
 		if test_latest != None:
 			save_pkl(test_results_pkl_path, test_latest)
@@ -125,7 +108,6 @@ def setup_argparse():
 	parser.add_argument('--run_config_file',      type=str, default=None)
 	
 	### Experiment
-	parser.add_argument('--wandb',		 action='store_true', default=False)
 	parser.add_argument('--seed', 			 type=int, default=1, help='Random seed for reproducible experiment (default: 1)')
 	parser.add_argument('--k', 			     type=int, default=5, help='Number of folds (default: 5)')
 	parser.add_argument('--k_start',		 type=int, default=-1, help='Start fold (Default: -1, last fold)')
@@ -204,7 +186,6 @@ if __name__ == "__main__":
 		new_run_name = args.run_name
 		results_dir = args.results_dir
 		feats_dir = args.feats_dir
-		wandb = args.wandb
 		cv_fold = args.k
 		max_epochs = args.max_epochs
 		with open(args.run_config_file, "r") as f:
@@ -219,7 +200,6 @@ if __name__ == "__main__":
 		args.run_name = new_run_name
 		args.feats_dir = feats_dir
 		args.results_dir = results_dir
-		args.wandb = wandb
 		args.k = cv_fold
 		args.max_epochs = max_epochs
 		args.split_dir = args.split_dir.split("/")[-1]
@@ -229,70 +209,11 @@ if __name__ == "__main__":
 		print("finished!")
 		print("end script")
 		print('Script Time: %f seconds' % (end - start))
-	elif not args.wandb:
+	else:
 		start = timer()
 		results = main()
 		end = timer()
 		print("finished!")
 		print("end script")
 		print('Script Time: %f seconds' % (end - start))
-	else:
-		
-		parameter_dict = {
-			"opt": {
-				# "values": ["sgd", "adam"]
-				"value": "adam"
-			},
-			"lr":{
-				"values": [1e-5, 1e-4, 1e-3]
-				# "value": 1e-3
-			},
-			"reg":{
-				"values": [1e-2, 1e-4, 1e-3]
-			},
-			# 'drop_out': {
-			# 	"values": [.25, .50, .75]
-			# },
-			# "gc": {
-			# 	"values": [32, 64, 128]
-			# },
-			
-		# }
-		# if args.feats_dir is not None:
-		# 	parameter_dict.update({
-				'model_dim': {
-					# "values": [None, 128, 256]
-					'value': None
-				},
-				'depth': {
-					"values": [3, 5]
-				},
-				'mha_heads': {
-					"values": [4, 6]
-				},
-				'dim_head': {
-					"values": [16, 32]
-				},
-		# 	})
-		# else:
-		# 	parameter_dict.update({
-				"mlp_type": {
-					"values": ["tiny", "big"]
-				},
-				# "activation": {
-				# 	"values": ["relu", "leakyrelu", "gelu"]
-				# },
-				# "mlp_depth": {
-				# 	"values": [3, 5, 7]
-				# }
-			}
-		sweep_config = {
-			'method': 'random',
-			'metric': {
-				'name': 'test_cindex',
-				'goal': 'maximize'
-			},
-			'parameters': parameter_dict
-		}
-		sweep_id = wandb.sweep(sweep_config, project=args.run_name+"_"+args.split_dir) 
-		wandb.agent(sweep_id, function=main)
+	
