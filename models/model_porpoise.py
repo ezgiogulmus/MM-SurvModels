@@ -254,7 +254,9 @@ class PorpoiseAMIL(nn.Module):
         A = F.softmax(A, dim=1) 
         M = torch.mm(A, h) 
         h  = self.classifier(M)
-        return h
+        hazards = torch.sigmoid(h)
+        S = torch.cumprod(1 - hazards, dim=1)
+        return hazards, S
 
     def get_slide_features(self, **kwargs):
         h = kwargs['x_path']
@@ -353,7 +355,7 @@ class PorpoiseMMF(nn.Module):
         h_path = torch.mm(A, h_path)
         h_path = self.rho(h_path)
 
-        x_omic = kwargs['x_omic']
+        x_omic = kwargs['x_omic'].unsqueeze(0)
         h_omic = self.fc_omic(x_omic)
         if self.fusion == 'bilinear':
             h_mm = self.mm(h_path, h_omic)
@@ -366,8 +368,10 @@ class PorpoiseMMF(nn.Module):
         h_mm  = self.classifier_mm(h_mm) # logits needs to be a [B x 4] vector      
         assert len(h_mm.shape) == 2 and h_mm.shape[1] == self.n_classes
 
+        hazards = torch.sigmoid(h_mm)
+        S = torch.cumprod(1 - hazards, dim=1)
 
-        return h_mm
+        return hazards, S
 
     def captum(self, h, X):
         A, h = self.attention_net(h)  

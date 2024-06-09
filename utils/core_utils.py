@@ -113,13 +113,13 @@ def train(datasets: tuple, cur: int, args: Namespace):
     args.omic_sizes = train_split.omic_sizes
 
     if args.model_type =='snn':
-        model_dict = {'omic_input_dim': args.omic_input_dim, 'model_size_omic': args.model_size_omic, 'n_classes': args.n_classes}
+        model_dict = {'omic_input_dim': args.omic_sizes, 'model_size_omic': args.model_size_omic, 'n_classes': args.n_classes}
         model = SNN(**model_dict)
     elif args.model_type == 'deepset':
-        model_dict = {"path_input_dim": args.path_input_dim, 'omic_input_dim': args.omic_input_dim, 'fusion': args.fusion, 'n_classes': args.n_classes}
+        model_dict = {"path_input_dim": args.path_input_dim, 'omic_input_dim': args.omic_sizes, 'fusion': args.fusion, 'n_classes': args.n_classes}
         model = MIL_Sum_FC_surv(**model_dict)
     elif args.model_type =='amil':
-        model_dict = {'path_input_dim': args.path_input_dim, 'omic_input_dim': args.omic_input_dim, 'fusion': args.fusion, 'n_classes': args.n_classes}
+        model_dict = {'path_input_dim': args.path_input_dim, 'omic_input_dim': args.omic_sizes, 'fusion': args.fusion, 'n_classes': args.n_classes}
         model = MIL_Attention_FC_surv
     elif args.model_type == 'mcat':
         model_dict = {"path_input_dim": args.path_input_dim, 'fusion': args.fusion, 'omic_sizes': args.omic_sizes, 'n_classes': args.n_classes}
@@ -127,13 +127,13 @@ def train(datasets: tuple, cur: int, args: Namespace):
     elif args.model_type == 'motcat':
         model_dict = {'path_input_dim': args.path_input_dim, 'ot_reg': args.ot_reg, 'ot_tau': args.ot_tau, 'ot_impl': args.ot_impl,'fusion': args.fusion, 'omic_sizes': args.omic_sizes, 'n_classes': args.n_classes}
         model = MOTCAT_Surv(**model_dict)
-    elif args.model_type == 'porpoise_mmf':
-        model_dict = {'path_input_dim': args.path_input_dim, 'omic_input_dim': args.omic_input_dim, 'fusion': args.fusion, 'n_classes': args.n_classes, 
+    elif args.model_type == 'porpmmf':
+        model_dict = {'path_input_dim': args.path_input_dim, 'omic_input_dim': args.omic_sizes, 'fusion': args.fusion, 'n_classes': args.n_classes, 
         'gate_path': args.gate_path, 'gate_omic': args.gate_omic, 'scale_dim1': args.scale_dim1, 'scale_dim2': args.scale_dim2, 
         'skip': args.skip, 'dropinput': args.dropinput, 'path_input_dim': args.path_input_dim, 'use_mlp': args.use_mlp,
         }
         model = PorpoiseMMF(**model_dict)
-    elif args.model_type == 'porpoise_amil':
+    elif args.model_type == 'porpamil':
         model_dict = {'path_input_dim': args.path_input_dim, 'n_classes': args.n_classes}
         model = PorpoiseAMIL(**model_dict)
     else:
@@ -154,7 +154,7 @@ def train(datasets: tuple, cur: int, args: Namespace):
     print('\nInit Loaders...', end=' ')
     train_loader = get_split_loader(train_split, training=True, weighted = args.weighted_sample, mode=args.mode, batch_size=args.batch_size)
     val_loader = get_split_loader(val_split, mode=args.mode, batch_size=args.batch_size)
-    test_loader = get_split_loader(test_split, batch_size=args.batch_size)
+    test_loader = get_split_loader(test_split, mode=args.mode, batch_size=args.batch_size)
     print('Done!')
 
     print('\nSetup EarlyStopping...', end=' ')

@@ -70,8 +70,8 @@ def collate_features(batch):
 def collate_MIL_survival(batch):
 	img = torch.cat([item[0] for item in batch], dim = 0)
 	omic = torch.cat([item[1] for item in batch], dim = 0).type(torch.FloatTensor)
-	label = torch.LongTensor([item[2] for item in batch])
-	event_time = np.array([item[3] for item in batch])
+	label = torch.LongTensor(np.array([item[2] for item in batch]))
+	event_time = torch.FloatTensor([item[3] for item in batch])
 	c = torch.FloatTensor([item[4] for item in batch])
 	return [img, omic, label, event_time, c]
 
@@ -113,7 +113,7 @@ def get_split_loader(split_dataset, training = False, testing = False, weighted 
 		collate = collate_MIL_survival_cluster
 	else:
 		collate = collate_MIL_survival
-
+	
 	kwargs = {'num_workers': 4} if device.type == "cuda" else {}
 	if not testing:
 		if training:

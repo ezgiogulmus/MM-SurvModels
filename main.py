@@ -58,7 +58,7 @@ def main(args=None):
 		df=df,
 		data_dir=args.feats_dir,
 		mode= args.mode,
-		sign_path=os.path.join(args.dataset_dir, "signatures.csv"),
+		sign_path=os.path.join(args.dataset_dir, "signatures.csv") if args.apply_sig else None,
 		print_info=True,
 		n_bins=args.n_classes,
 		indep_vars=indep_vars
@@ -152,6 +152,16 @@ def setup_argparse():
 	parser.add_argument('--ot_impl', type=str, default='pot-uot-l2', help='impl of ot (default: pot-uot-l2)')  # new
 	parser.add_argument('--ot_reg', type=float, default=0.1, help='epsilon of OT (default: 0.1)')
 	parser.add_argument('--ot_tau', type=float, default=0.5, help='tau of UOT (default: 0.5)')
+
+	# PORPOISE Parameters
+	parser.add_argument('--apply_mutsig', action='store_true', default=False)
+	parser.add_argument('--gate_path', action='store_true', default=False)
+	parser.add_argument('--gate_omic', action='store_true', default=False)
+	parser.add_argument('--scale_dim1', type=int, default=8)
+	parser.add_argument('--scale_dim2', type=int, default=8)
+	parser.add_argument('--skip', action='store_true', default=False)
+	parser.add_argument('--dropinput', type=float, default=0.0)
+	parser.add_argument('--use_mlp', action='store_true', default=False)
 
 	### Optimizer Parameters + Survival Loss Function
 	parser.add_argument('--opt',             type=str, choices = ['adam', 'sgd'], default='adam')

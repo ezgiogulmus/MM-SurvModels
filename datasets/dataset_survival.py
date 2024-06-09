@@ -95,6 +95,9 @@ class Generic_WSI_Survival_Dataset(Dataset):
 			print("OMIC SIZES:")
 			for i in self.omic_sizes:
 				print("\t", i)
+		else:
+			self.omic_sizes = len(self.indep_vars)
+			self.omic_names = None
 
 		if print_info:
 			self.summarize()
@@ -213,7 +216,8 @@ class MIL_Survival_Dataset(Generic_WSI_Survival_Dataset):
 		else:
 			path_features = torch.zeros(1,)
 		if 'omic' in self.mode:
-			genomic_features = torch.tensor(self.indep_vars.iloc[idx])
+			genomic_features = torch.tensor(self.slide_data[self.indep_vars].iloc[idx])
+			
 		else:
 			genomic_features = torch.zeros(1,)
 			

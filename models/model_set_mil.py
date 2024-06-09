@@ -139,7 +139,6 @@ class MIL_Attention_FC_surv(nn.Module):
 
         self.classifier = nn.Linear(size[2], n_classes)
 
-
     def relocate(self):
         device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         if torch.cuda.device_count() >= 1:
