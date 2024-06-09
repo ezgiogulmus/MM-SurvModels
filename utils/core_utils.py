@@ -10,8 +10,6 @@ from models.model_set_mil import MIL_Sum_FC_surv, MIL_Attention_FC_surv, MIL_Clu
 from models.model_coattn import MCAT_Surv
 from utils.utils import *
 
-from utils.coattn_train_utils import *
-from utils.cluster_train_utils import *
 
 class EarlyStopping:
     """Early stops the training if validation loss doesn't improve after a given patience."""
@@ -108,6 +106,7 @@ def train(datasets: tuple, cur: int, args: Namespace):
     print('\nInit Model...', end=' ')
     model_dict = {"dropout": args.drop_out, 'n_classes': args.n_classes}
     args.fusion = None if args.fusion == 'None' else args.fusion
+    args.omic_sizes = train_split.omic_sizes
 
     if args.model_type =='snn':
         model_dict = {'omic_input_dim': args.omic_input_dim, 'model_size_omic': args.model_size_omic, 'n_classes': args.n_classes}
@@ -149,6 +148,7 @@ def train(datasets: tuple, cur: int, args: Namespace):
         early_stopping = EarlyStopping(warmup=0, patience=10, stop_epoch=20, verbose = True)
     else:
         early_stopping = None
+    print('Done!\n\n')
 
     for epoch in range(args.max_epochs):
         loop_survival(cur, epoch, model, train_loader, loss_fn, reg_fn, args.lambda_reg, writer, optimizer, args.gc, coattn=True if args.mode == "coattn" else False)
@@ -163,11 +163,12 @@ def train(datasets: tuple, cur: int, args: Namespace):
     results_val_dict, val_cindex = loop_survival(cur, epoch, model, val_loader, loss_fn, reg_fn, args.lambda_reg, coattn=True if args.mode == "coattn" else False, training=False, return_summary=True)
     results_test_dict, test_cindex = loop_survival(cur, epoch, model, test_loader, loss_fn, reg_fn, args.lambda_reg, coattn=True if args.mode == "coattn" else False, training=False, return_summary=True)
     print('Val c-Index: {:.4f} | Test c-Index: {:.4f}'.format(val_cindex, test_cindex))
+    log = {'val_cindex': val_cindex, 'test_cindex': test_cindex}
     if writer:
-        writer.add_scalar('latest_val/c_index', val_cindex, epoch)
-        writer.add_scalar('latest_test/c_index', test_cindex, epoch)
+        for k, v in log.items():
+            writer.add_scalar(k, v)
         writer.close()
-    return results_val_dict, val_cindex, results_test_dict, test_cindex
+    return log, results_val_dict, results_test_dict
 
 def loop_survival(
         cur, epoch, model, loader, 
@@ -218,8 +219,8 @@ def loop_survival(
                     'slide_id': np.array(slide_id), 
                     'risk': risk, 
                     'disc_label': label.item(), 
-                    'survival': np.asscalar(event_time), 
-                    'censorship': np.asscalar(c)
+                    'survival': event_time.cpu().numpy(), 
+                    'censorship': c.cpu().numpy()
             }})
 
 
@@ -243,8 +244,10 @@ def loop_survival(
     running_loss /= len(loader)
 
     c_index = concordance_index_censored((1-all_censorships).astype(bool), all_event_times, all_risk_scores, tied_tol=1e-08)[0]
-    print('{} | epoch: {}, loss_surv: {:.4f}, loss: {:.4f}, train_c_index: {:.4f}'.format(split_name, epoch, loss_surv, running_loss, c_index))
-
+    if return_summary:
+        return patient_results, c_index
+    print('{} | epoch: {}, loss_surv: {:.4f}, loss: {:.4f}, train_c_index: {:.4f}\n'.format(split_name, epoch, loss_surv, running_loss, c_index))
+    
     if writer:
         writer.add_scalar(f'{split_name}/loss_surv', loss_surv, epoch)
         writer.add_scalar(f'{split_name}/loss', running_loss, epoch)

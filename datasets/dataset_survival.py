@@ -2,6 +2,7 @@ from __future__ import print_function, division
 import os
 import numpy as np
 import pandas as pd
+import itertools
 from sklearn.preprocessing import StandardScaler
 
 import torch
@@ -28,7 +29,7 @@ class Generic_WSI_Survival_Dataset(Dataset):
 		if self.print_info:
 			print("Number of selected tabular data: ", len(self.indep_vars))
 		
-		slide_data = df[["case_id", "slide_id", "survival_months", "censorship", "group"]+self.indep_vars]
+		slide_data = df[["case_id", "slide_id", "survival_months", "censorship"]+self.indep_vars]
 		
 		patients_df = slide_data.drop_duplicates(['case_id']).copy()
 
@@ -77,6 +78,24 @@ class Generic_WSI_Survival_Dataset(Dataset):
 		
 		self.signatures = pd.read_csv(sign_path) if sign_path else None
 
+		def series_intersection(s1, s2):
+			return pd.Series(list(set(s1) & set(s2)))
+
+		if self.signatures is not None:
+			self.omic_names = []
+			for col in self.signatures.columns:
+				omic = self.signatures[col].dropna().unique()
+				omic = np.concatenate([omic+mode for mode in ['_mut', '_cnv', '_rna', "_dna"]])
+				omic = sorted(series_intersection(omic, self.indep_vars))
+				self.omic_names.append(omic)
+			self.omic_sizes = [len(omic) for omic in self.omic_names]
+			self.indep_vars = list(np.unique(list(itertools.chain(*self.omic_names))))
+			self.slide_data = self.slide_data[["case_id", "slide_id", "survival_months", "censorship", "disc_label", "label"]+self.indep_vars].reset_index(drop=True)
+			print("Total Genetic Data:", len(self.indep_vars))
+			print("OMIC SIZES:")
+			for i in self.omic_sizes:
+				print("\t", i)
+
 		if print_info:
 			self.summarize()
 			
@@ -84,6 +103,7 @@ class Generic_WSI_Survival_Dataset(Dataset):
 		return self.slide_data['label'][ids]
 	
 	def summarize(self):
+		print("\n################## DATA SUMMARY ##########################")
 		print("label column: {}".format("survival_months"))
 		print("number of classes: {}".format(self.num_classes))
 		for i in range(self.num_classes):
@@ -92,20 +112,21 @@ class Generic_WSI_Survival_Dataset(Dataset):
 			nb_slides = sum([len(self.patient_dict[v]) for v in cases])
 			print('Patient-LVL; Number of samples registered in class %d: %d' % (i, nb_cases))
 			print('Slide-LVL; Number of samples registered in class %d: %d' % (i, nb_slides))
+		print("########################################################\n")
 		
 	def __len__(self):
 		return len(self.slide_data)
 
 	def get_split_from_df(self, all_splits=None, split_key='train', scaler=None):
 		if split_key == 'all':
-			return Generic_Split(self.slide_data, self.time_breaks, self.indep_vars, self.mode, self.data_dir, patient_dict=self.patient_dict, print_info=self.print_info, num_classes=self.num_classes, signatures=self.signatures)
+			return Generic_Split(self.slide_data, self.time_breaks, self.indep_vars, self.mode, self.data_dir, patient_dict=self.patient_dict, print_info=self.print_info, num_classes=self.num_classes, signatures=self.signatures, omic_sizes=self.omic_sizes, omic_names=self.omic_names)
 		split = all_splits[split_key]
 		split = split.dropna().reset_index(drop=True)
 
 		if len(split) > 0:
 			mask = self.slide_data['slide_id'].isin(split.tolist())
 			df_slice = self.slide_data[mask].reset_index(drop=True)
-			split = Generic_Split(df_slice, self.time_breaks, self.indep_vars, self.mode, self.data_dir, patient_dict=self.patient_dict, print_info=self.print_info, num_classes=self.num_classes, signatures=self.signatures)
+			split = Generic_Split(df_slice, self.time_breaks, self.indep_vars, self.mode, self.data_dir, patient_dict=self.patient_dict, print_info=self.print_info, num_classes=self.num_classes, signatures=self.signatures, omic_sizes=self.omic_sizes, omic_names=self.omic_names)
 		else:
 			split = None
 		
@@ -125,9 +146,8 @@ class Generic_WSI_Survival_Dataset(Dataset):
 		train_split = self.get_split_from_df(all_splits=all_splits, split_key='train')
 		val_split = self.get_split_from_df(all_splits=all_splits, split_key='val')
 		test_split = self.get_split_from_df(all_splits=all_splits, split_key='test')
-
+		
 		train_stats = train_split.get_stats()
-	
 		sc = train_split.preprocess(train_stats)
 		val_split.preprocess(train_stats, sc=sc)
 		test_split.preprocess(train_stats, sc=sc)
@@ -162,9 +182,9 @@ class MIL_Survival_Dataset(Generic_WSI_Survival_Dataset):
 
 	def __getitem__(self, idx):
 		case_id = self.slide_data['case_id'][idx]
-		label = self.slide_data['disc_label'][idx]
-		event_time = self.slide_data[self.label_col][idx]
-		c = self.slide_data['censorship'][idx]
+		label = torch.tensor(self.slide_data['disc_label'][idx])
+		event_time = torch.tensor(self.slide_data["survival_months"][idx])
+		c = torch.tensor(self.slide_data['censorship'][idx])
 		slide_ids = self.patient_dict[case_id]
 		
 		if self.mode == 'coattn':
@@ -174,12 +194,13 @@ class MIL_Survival_Dataset(Generic_WSI_Survival_Dataset):
 				wsi_bag = torch.load(wsi_path)
 				path_features.append(wsi_bag)
 			path_features = torch.cat(path_features, dim=0)
-			omic1 = torch.tensor(self.genomic_features[self.omic_names[0]].iloc[idx])
-			omic2 = torch.tensor(self.genomic_features[self.omic_names[1]].iloc[idx])
-			omic3 = torch.tensor(self.genomic_features[self.omic_names[2]].iloc[idx])
-			omic4 = torch.tensor(self.genomic_features[self.omic_names[3]].iloc[idx])
-			omic5 = torch.tensor(self.genomic_features[self.omic_names[4]].iloc[idx])
-			omic6 = torch.tensor(self.genomic_features[self.omic_names[5]].iloc[idx])
+			omic1 = torch.tensor(self.slide_data[self.omic_names[0]].iloc[idx])
+			omic2 = torch.tensor(self.slide_data[self.omic_names[1]].iloc[idx])
+			omic3 = torch.tensor(self.slide_data[self.omic_names[2]].iloc[idx])
+			omic4 = torch.tensor(self.slide_data[self.omic_names[3]].iloc[idx])
+			omic5 = torch.tensor(self.slide_data[self.omic_names[4]].iloc[idx])
+			omic6 = torch.tensor(self.slide_data[self.omic_names[5]].iloc[idx])
+			
 			return (path_features, omic1, omic2, omic3, omic4, omic5, omic6, label, event_time, c)
 
 		if "path" in self.mode:
@@ -202,7 +223,8 @@ class MIL_Survival_Dataset(Generic_WSI_Survival_Dataset):
 class Generic_Split(MIL_Survival_Dataset):
 	def __init__(self, slide_data, time_breaks, indep_vars,
 	mode, data_dir=None, patient_dict=None, 
-	print_info=False, num_classes=4, signatures=None):
+	print_info=False, num_classes=4, signatures=None,
+	omic_sizes=None, omic_names=None):
 		"""
 		Args:
 			slide_data (DataFrame): Data for the current split.
@@ -223,17 +245,8 @@ class Generic_Split(MIL_Survival_Dataset):
 		self.indep_vars = indep_vars
 		self.signatures = signatures
 
-		def series_intersection(s1, s2):
-			return pd.Series(list(set(s1) & set(s2)))
-
-		if self.signatures:
-			self.omic_names = []
-			for col in self.signatures.columns:
-				omic = self.signatures[col].dropna().unique()
-				omic = np.concatenate([omic+mode for mode in ['_mut', '_cnv', '_rna']])
-				omic = sorted(series_intersection(omic, self.indep_vars.columns))
-				self.omic_names.append(omic)
-			self.omic_sizes = [len(omic) for omic in self.omic_names]
+		self.omic_sizes = omic_sizes
+		self.omic_names = omic_names
 		
 	def __len__(self):
 		return len(self.slide_data)

@@ -93,8 +93,8 @@ def collate_MIL_survival_sig(batch):
 	omic5 = torch.cat([item[5] for item in batch], dim = 0).type(torch.FloatTensor)
 	omic6 = torch.cat([item[6] for item in batch], dim = 0).type(torch.FloatTensor)
 
-	label = torch.LongTensor([item[7] for item in batch])
-	event_time = np.array([item[8] for item in batch])
+	label = torch.LongTensor(np.array([item[7] for item in batch]))
+	event_time = torch.FloatTensor([item[8] for item in batch])
 	c = torch.FloatTensor([item[9] for item in batch])
 	return [img, omic1, omic2, omic3, omic4, omic5, omic6, label, event_time, c]
 
@@ -410,7 +410,7 @@ def check_directories(args):
 		else:
 			args.path_input_dim = 768
 
-	args.split_dir = os.path.join('./splits', args.data_name)
+	args.split_dir = os.path.join(args.split_dir, args.data_name)
 	print("split_dir", args.split_dir)
 	assert os.path.isdir(args.split_dir)
 

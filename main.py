@@ -88,7 +88,8 @@ def main(args=None):
 
 		### Gets the Train + Val Dataset Loader.
 		datasets, train_stats = dataset.return_splits(os.path.join(args.split_dir, f"splits_{i}.csv"))
-		train_stats.to_csv(os.path.join(args.results_dir, f'train_stats_{i}.csv'))
+		if train_stats is not None:
+			train_stats.to_csv(os.path.join(args.results_dir, f'train_stats_{i}.csv'))
 		
 		log, val_latest, test_latest = train(datasets, i, args)
 		
