@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 
 setup(
-    name='mm_models',
+    name='mmsurv',
     version='0.1.0',
     description='MM-SurvModels',
     url='https://github.com/ezgiogulmus/MM-SurvModels',
