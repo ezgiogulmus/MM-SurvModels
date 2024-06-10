@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from mmsurv.models.model_utils import *
 
 ###########################
 ### MCAT Implementation ###

@@ -4,7 +4,7 @@ import torch.nn.functional as F
 import torch.nn as nn
 
 import ot
-
+from mmsurv.models.model_utils import *
 
 
 class OT_Attn_assem(nn.Module):
