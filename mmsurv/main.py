@@ -152,7 +152,6 @@ def setup_argparse():
 	parser.add_argument('--max_epochs',      type=int, default=20, help='Maximum number of epochs to train (default: 20)')
 	parser.add_argument('--lr',				 type=float, default=2e-4, help='Learning rate (default: 0.0001)')
 	parser.add_argument('--bag_loss',        type=str, choices=['svm', 'ce', 'ce_surv', 'nll_surv', 'cox_surv'], default='nll_surv', help='slide-level classification loss function (default: ce)')
-	parser.add_argument('--label_frac',      type=float, default=1.0, help='fraction of training labels (default: 1.0)')
 	parser.add_argument('--bag_weight',      type=float, default=0.7, help='clam: weight coefficient for bag-level loss (default: 0.7)')
 	parser.add_argument('--reg', 			 type=float, default=1e-5, help='L2-regularization weight decay (default: 1e-5)')
 	parser.add_argument('--alpha_surv',      type=float, default=0.0, help='How much to weigh uncensored patients')
