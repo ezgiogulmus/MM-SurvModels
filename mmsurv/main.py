@@ -9,12 +9,6 @@ import numpy as np
 import pandas as pd
 import torch
 
-### Internal Imports
-from mmsurv.datasets.dataset_survival import MIL_Survival_Dataset
-from mmsurv.utils.file_utils import save_pkl
-from mmsurv.utils.core_utils import train
-from mmsurv.utils.utils import check_directories, get_data
-
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 def run(args=None):
@@ -179,11 +173,15 @@ def seed_torch(seed=7):
 	torch.backends.cudnn.deterministic = True
 
 			
-
-# if __name__ == "__main__":
 if __name__ == "__main__" and (__package__ is None or __package__ == ''):
 	script_dir = os.path.dirname(os.path.abspath(__file__))
 	sys.path.append(os.path.dirname(script_dir))
+	### Internal Imports
+	from mmsurv.datasets.dataset_survival import MIL_Survival_Dataset
+	from mmsurv.utils.file_utils import save_pkl
+	from mmsurv.utils.core_utils import train
+	from mmsurv.utils.utils import check_directories, get_data
+	
 	args = setup_argparse()
 	if args.run_config_file:
 		new_run_name = args.run_name
