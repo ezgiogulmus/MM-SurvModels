@@ -1,1 +1,1 @@
-from mmsurv.models.model_utils import *
+from .model_utils import *
