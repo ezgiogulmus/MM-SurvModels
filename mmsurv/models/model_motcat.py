@@ -5,7 +5,6 @@ import torch.nn as nn
 
 import ot
 
-from models.model_utils import *
 
 
 class OT_Attn_assem(nn.Module):

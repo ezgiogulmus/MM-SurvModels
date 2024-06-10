@@ -5,13 +5,13 @@ import random
 from sksurv.metrics import concordance_index_censored
 import torch
 
-from datasets.dataset_generic import save_splits
-from models.model_genomic import SNN
-from models.model_set_mil import MIL_Sum_FC_surv, MIL_Attention_FC_surv
-from models.model_coattn import MCAT_Surv
-from models.model_motcat import MOTCAT_Surv
-from models.model_porpoise import PorpoiseAMIL, PorpoiseMMF
-from utils.utils import *
+from mmsurv.datasets.dataset_generic import save_splits
+from mmsurv.models.model_genomic import SNN
+from mmsurv.models.model_set_mil import MIL_Sum_FC_surv, MIL_Attention_FC_surv
+from mmsurv.models.model_coattn import MCAT_Surv
+from mmsurv.models.model_motcat import MOTCAT_Surv
+from mmsurv.models.model_porpoise import PorpoiseAMIL, PorpoiseMMF
+from mmsurv.utils.utils import *
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu") 
 
