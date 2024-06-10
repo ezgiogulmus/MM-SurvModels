@@ -17,7 +17,7 @@ from utils.utils import check_directories, get_data
 
 device=torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-def main(args=None):
+def run(args=None):
 	if args is None:
 		args = setup_argparse()
 	seed_torch(args.seed)
@@ -204,14 +204,14 @@ if __name__ == "__main__":
 		args.max_epochs = max_epochs
 		args.split_dir = args.split_dir.split("/")[-1]
 		start = timer()
-		results = main(args)
+		run(args)
 		end = timer()
 		print("finished!")
 		print("end script")
 		print('Script Time: %f seconds' % (end - start))
 	else:
 		start = timer()
-		results = main()
+		run()
 		end = timer()
 		print("finished!")
 		print("end script")
