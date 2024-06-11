@@ -92,9 +92,12 @@ class Generic_WSI_Survival_Dataset(Dataset):
 			self.indep_vars = list(np.unique(list(itertools.chain(*self.omic_names))))
 			self.slide_data = self.slide_data[["case_id", "slide_id", "survival_months", "censorship", "disc_label", "label"]+self.indep_vars].reset_index(drop=True)
 			print("Total Genetic Data:", len(self.indep_vars))
-			print("OMIC SIZES:")
-			for i in self.omic_sizes:
-				print("\t", i)
+			if self.mode != "coattn":
+				self.omic_sizes = len(self.indep_vars)
+			else:
+				print("OMIC SIZES:")
+				for i in self.omic_sizes:
+					print("\t", i)
 		else:
 			self.omic_sizes = len(self.indep_vars)
 			self.omic_names = None

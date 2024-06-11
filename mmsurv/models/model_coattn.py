@@ -25,6 +25,7 @@ class MCAT_Surv(nn.Module):
 		### Constructing Genomic SNN
 		hidden = self.size_dict_omic[model_size_omic]
 		sig_networks = []
+		
 		for input_dim in omic_sizes:
 			fc_omic = [SNN_Block(dim1=input_dim, dim2=hidden[0])]
 			for i, _ in enumerate(hidden[1:]):

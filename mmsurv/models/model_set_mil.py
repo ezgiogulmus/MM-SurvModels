@@ -57,7 +57,7 @@ class MIL_Sum_FC_surv(nn.Module):
         if torch.cuda.device_count() >= 1:
             device_ids = list(range(torch.cuda.device_count()))
             self.phi = nn.DataParallel(self.phi, device_ids=device_ids).to('cuda:0')
-
+        
         if self.fusion is not None:
             self.fc_omic = self.fc_omic.to(device)
             self.mm = self.mm.to(device)
@@ -141,7 +141,9 @@ class MIL_Attention_FC_surv(nn.Module):
         if torch.cuda.device_count() >= 1:
             device_ids = list(range(torch.cuda.device_count()))
             self.attention_net = nn.DataParallel(self.attention_net, device_ids=device_ids).to('cuda:0')
-
+        else:
+            self.attention_net = self.attention_net.to(device)
+            
         if self.fusion is not None:
             self.fc_omic = self.fc_omic.to(device)
             self.mm = self.mm.to(device)

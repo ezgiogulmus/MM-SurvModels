@@ -120,7 +120,7 @@ def train(datasets: tuple, cur: int, args: Namespace):
         model = MIL_Sum_FC_surv(**model_dict)
     elif args.model_type =='amil':
         model_dict = {'path_input_dim': args.path_input_dim, 'omic_input_dim': args.omic_sizes, 'fusion': args.fusion, 'n_classes': args.n_classes}
-        model = MIL_Attention_FC_surv
+        model = MIL_Attention_FC_surv(**model_dict)
     elif args.model_type == 'mcat':
         model_dict = {"path_input_dim": args.path_input_dim, 'fusion': args.fusion, 'omic_sizes': args.omic_sizes, 'n_classes': args.n_classes}
         model = MCAT_Surv(**model_dict)
