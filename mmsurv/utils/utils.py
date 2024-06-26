@@ -426,12 +426,12 @@ def check_directories(args):
 	
 	if feat_extractor:
 		param_code += "_" + feat_extractor
-	if args.apply_sig:
-		param_code += "_sig"
-
+	
 	if args.omics not in ["None", "none", None]:
-		args.run_name += "_"+args.omics+"_sel" if args.selected_features else "_all"
+		args.run_name += "_"+args.omics if args.selected_features else "_"+args.omics+"_all"
+		if args.apply_sig:
+			args.run_name += "_sig"
 	args.results_dir = os.path.join(args.results_dir, param_code, args.run_name)
-	args.csv_path = f"{args.dataset_dir}/"+args.data_name+".csv"
+	args.csv_path = f"{args.dataset_dir}/"+args.data_name+".csv" if not args.selected_features else f"{args.dataset_dir}/"+args.data_name+"_selected.csv"
 	assert os.path.isfile(args.csv_path), f"Data file does not exist > {args.csv_path}"
 	return args
