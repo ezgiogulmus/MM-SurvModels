@@ -294,7 +294,7 @@ def loop_survival(
 		writer.add_scalar(f'{split_name}/loss', running_loss, epoch)
 		writer.add_scalar(f'{split_name}/c_index', c_index, epoch)
 		if not training:
-			writer.add_scalar(f'{split}/lr', last_lr, epoch)
+			writer.add_scalar(f'{split_name}/lr', last_lr, epoch)
 
 	if early_stopping:
 		assert results_dir
