@@ -12,7 +12,7 @@ from scipy import stats
 from torch.utils.data import Dataset
 import h5py
 
-from utils.utils import generate_split, nth
+from mmsurv.utils.utils import generate_split, nth
 
 
 
